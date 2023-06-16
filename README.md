@@ -1,0 +1,2 @@
+# SmartPurse
+For Persional Budgeting
