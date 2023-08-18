@@ -8,12 +8,37 @@ from globals.settings import DATA_ROOT_FOLDER
 
 class App:
     def __init__(self):
+        pass        
+
+class Ledger:
+    def __init__(self):
         self.account_names = os.listdir(DATA_ROOT_FOLDER)
+
+    def collect_data(self):
+        self._load_accounts()
+        self._collect_all_data()
+        self._aggregate_data()
+    
+    def _load_accounts(self):
+        self.accounts = [Account(account_name) for account_name in self.account_names]
+        for account in self.accounts:
+            account.load()
+
+    def _collect_all_data(self):
+        dataframes = [account.data for account in self.accounts]
+        self.content = pd.concat(dataframes)
+
+    def _aggregate_data(self):
+        self.aggregated_data = (self.content
+                                .groupby([
+                                    'Year', 'Month', 'Account Name', 'main_category', 'subcategory', 'budget_item'
+                                ])['Amount'].aggregate('sum'))
 
 
 
 class Account:
     def __init__(self, folder_name: str):
+        self.account_name = folder_name
         self.root_path = f"{DATA_ROOT_FOLDER}/{folder_name}"
         self.config_folder = f"{self.root_path}/Config"
         self.data_folder = f"{self.root_path}/Data"
@@ -21,7 +46,7 @@ class Account:
     def load(self):
         self._load_configs()
         self._load_data()
-        self._assign_categories()
+        self._assign_categories()        
 
     def _load_configs(self):
         with open(f"{self.config_folder}/column_mapping.json", encoding="utf-8") as file:
@@ -44,11 +69,14 @@ class Account:
         df = pd.read_csv(f"{self.data_folder}/{filename}", sep=";", encoding="UTF-16 LE", on_bad_lines='warn')
         df = df[list(self.column_mapping.keys())]
         df = df.rename(columns=self.column_mapping)
-        df = df.replace(np.nan, None, regex=True)
+        df = df.replace(np.nan, None, regex=True)        
         df['Date'] = pd.to_datetime(df['Date'], format="%d.%m.%Y").dt.date
+        df['Year'] = pd.DatetimeIndex(df['Date']).year
+        df['Month'] = pd.DatetimeIndex(df['Date']).month
         df['Amount'] = df['Amount'].str.replace('.','', regex=False)
         df['Amount'] = df['Amount'].str.replace(',','.', regex=False)
         df['Amount'] = df['Amount'].astype(float)
+        df['Account Name'] = self.account_name
         return df
     
     def _merge_tables(self, left_table: DataFrame, right_table: DataFrame):
@@ -139,9 +167,10 @@ class Categorizer:
         self.main_category = category_name
 
 
-    
+ledger = Ledger()
 
-account = Account("")
-account.load()
+ledger.collect_data()
+print(ledger.aggregated_data)
+
 
 #print(os.listdir(DATA_ROOT_FOLDER))
