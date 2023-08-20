@@ -78,10 +78,11 @@ class Account:
     def _merge_tables(self, left_table: DataFrame, right_table: DataFrame):
         key_columns = ['Date', 'Transaction ID']
         not_key_columns = [col for col in left_table.columns if col not in key_columns]
-        merged_table = pd.merge(left_table, right_table, how='left', on=key_columns, suffixes=("_left", "_right"))
+        merged_table = pd.merge(left_table, right_table, how='outer', on=key_columns, suffixes=("_left", "_right"))
         for column in not_key_columns:
             merged_table[column] = merged_table[column + '_left'].combine_first(merged_table[column + '_right'])
             merged_table = merged_table.drop([column + '_left', column + '_right'], axis=1)
+        merged_table = merged_table.sort_values(by='Date')
         return merged_table
     
     def _assign_categories(self):
