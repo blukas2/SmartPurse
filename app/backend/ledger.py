@@ -48,7 +48,7 @@ class Account:
     def _load_configs(self):
         with open(f"{self.config_folder}/column_mapping.json", encoding="utf-8") as file:
             self.column_mapping = json.load(file)
-        with open(f"{self.config_folder}/categories.json") as file:
+        with open(f"{self.config_folder}/categories.json", encoding="utf-8") as file:
             self.categories = json.load(file)
 
     def _load_data(self):
@@ -87,7 +87,7 @@ class Account:
     
     def _assign_categories(self):
         categorizer = Categorizer(self.categories)
-        records = self.data.to_dict(orient='records')
+        records = self.data.replace(np.nan, None, regex=True).to_dict(orient='records') # testing
         categorized_records = []
         for record in records:
             categorized_records.append(categorizer.categorize(record))

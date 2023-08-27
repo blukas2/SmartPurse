@@ -7,12 +7,16 @@ class DataOrganizer:
         self.input_data = input_data
 
     def reorganize_data(self):
-        self.accounts_data_cost_breakdown = {"all": self.prepare_data(account_name="all")}
+        self._reorganize_data_for_cost_breakdown()
+        self._calculate_monthly_accumulated()
+
+    def _reorganize_data_for_cost_breakdown(self):
+        self.accounts_data_cost_breakdown = {"all": self._prepare_data(account_name="all")}
         account_names = self.input_data['Account Name'].unique().tolist()
         for account_name in account_names:
-            self.accounts_data_cost_breakdown[account_name] = self.prepare_data(account_name=account_name)
+            self.accounts_data_cost_breakdown[account_name] = self._prepare_data(account_name=account_name)
 
-    def prepare_data(self, account_name="all"):
+    def _prepare_data(self, account_name="all"):
         df = self._prepare_data_for_pivot(account_name=account_name)
         pivot_table = self._pivot_dataframe(df)
         summary_table = self._compile_summary_table(pivot_table)
@@ -93,3 +97,25 @@ class DataOrganizer:
         df['Category'] = df['main_category']
         df.groupby(['Category']).aggregate('sum').reset_index()
         return df
+    
+    def _calculate_monthly_accumulated(self):
+        self.accounts_data_cost_breakdown_acc = {account_name: data.copy() for account_name, data in self.accounts_data_cost_breakdown.items()}
+        for account_name, data in self.accounts_data_cost_breakdown_acc.items():
+            self.accounts_data_cost_breakdown_acc[account_name] = self._calulate_accomulated_monthly_values_in_df(data)
+
+    def _calulate_accomulated_monthly_values_in_df(self, df: pd.DataFrame):
+        for column in df.columns:
+            if column != 'Category':
+                year, month, day = self._split_date_string_to_components(column)
+                if month != '01':
+                    previous_month = ('0' + str(int(month)-1))[-2:]
+                    previous_column = f"{year}-{previous_month}-{day}"
+                    df[column] = df[column] + df[previous_column]
+        return df
+
+    def _split_date_string_to_components(self, date: str):
+        """:param date: date string in the format of '2020-02-01'"""
+        year = date[0:4]
+        month = date[5:7]
+        day = date[8:10]
+        return year, month, day
