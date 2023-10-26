@@ -110,7 +110,7 @@ class DataOrganizer:
                 if month != '01':
                     previous_month = ('0' + str(int(month)-1))[-2:]
                     previous_column = f"{year}-{previous_month}-{day}"
-                    df[column] = df[column] + df[previous_column]
+                    df[column] = (df[column] + df[previous_column]).round(decimals=2)
         return df
 
     def _split_date_string_to_components(self, date: str):
