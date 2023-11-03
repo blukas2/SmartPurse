@@ -34,14 +34,16 @@ def render_content(tab):
             html.Div(id='summary_tables')
         ])
     elif tab == 'tab-transcript':
+
         return html.Div([
             html.Div([
-                html.H6("Account name: "),
-                dcc.Dropdown(transcript_viewer.account_names, transcript_viewer.account_names[0], id='account_name'),
-                html.H6("Year: "),
-                dcc.Dropdown([2023, 2022], 2022, id='transcript_year'),
-                html.H6("Month: "),
-                dcc.Dropdown([1,2,3,4,5], 4, id='transcript_month')
+                html.H4("Account name: "),
+                dcc.Dropdown(transcript_viewer.account_names, transcript_viewer.account_names[0], id='account_name',
+                             style={"width": "10%"}),
+                html.H4("Year: "),
+                dcc.Dropdown([2023, 2022], 2022, id='transcript_year', style={"width": "10%"}),
+                html.H4("Month: "),
+                dcc.Dropdown([1,2,3,4,5], 4, id='transcript_month', style={"width": "10%"})
                 ], style={"display":"flex"}
             ),
             html.Div(id='transcript_table')
@@ -83,22 +85,19 @@ def _render_tables(tables: dict[str, pd.DataFrame]) -> list:
 
 @callback(
     Output(component_id='transcript_table', component_property='children'),
-    Input(component_id='account_name', component_property='value')
+    Input(component_id='account_name', component_property='value'),
+    Input(component_id='transcript_year', component_property='value'),
+    Input(component_id='transcript_month', component_property='value')
 )
-def render_transcript(account_name: str) -> list:
+def render_transcript(account_name: str, year: int, month: int) -> list:
     df_to_render = transcript_viewer.account_data[account_name]
+    df_to_render = df_to_render[df_to_render["Year"]==year]
+    df_to_render = df_to_render[df_to_render["Month"]==month]
+    
     display_columns = [{"name": i, "id": i} for i in df_to_render.columns]
     rendered_table = dash_table.DataTable(data=df_to_render.to_dict('records'),
                                                     columns=display_columns,
-                                                    style_cell={'textAlign':'left'}#,
-                                                    #style_cell_conditional=[
-                                                    #    {
-                                                    #        'if': {'column_id': 'Category'},
-                                                    #        'textAlign': 'left'
-                                                    #    }
-                                                    #    ]
-                                            )
-
+                                                    style_cell={'textAlign':'left'})
     return rendered_table
 
 
