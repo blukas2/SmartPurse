@@ -1,3 +1,4 @@
+import copy
 import pandas as pd
 from pandas import DataFrame
 from dash import Dash, dash_table, html, dcc, callback, Input, Output
@@ -33,7 +34,13 @@ app.layout = html.Div([
 def render_content(tab):
     if tab == 'tab-summary':
         return html.Div([
-            dcc.Dropdown(["monthly", "accumulated monthly"], "monthly", id='calc_type'),
+            html.Div([
+                html.H4("Year: "),
+                dcc.Dropdown(transcript_viewer.years, max(transcript_viewer.years), id='summary_year', style={"width": "10%"}),
+                html.H4("Calculation type: "),
+                dcc.Dropdown(["monthly", "accumulated monthly"], "monthly", id='calc_type')
+            ], style={"display":"flex"}),
+            #dcc.Dropdown(["monthly", "accumulated monthly"], "monthly", id='calc_type'),
             html.Div(id='summary_tables')
         ])
     elif tab == 'tab-transcript':
@@ -59,17 +66,31 @@ def render_content(tab):
 
 @callback(
     Output(component_id='summary_tables', component_property='children'),
+    Input(component_id='summary_year', component_property='value'),
     Input(component_id='calc_type', component_property='value')       
 )
-def render_calculation_type(calculation_type: str) -> list:
+def render_calculation_type(year: int, calculation_type: str) -> list:
     if calculation_type == "monthly":
-        rendered_tables = _render_tables(data_organizer.accounts_data_cost_breakdown)
+        tables_to_render = _select_year(year, data_organizer.accounts_data_cost_breakdown)
+        #rendered_tables = _render_tables(data_organizer.accounts_data_cost_breakdown)
     elif calculation_type == "accumulated monthly":
-        rendered_tables = _render_tables(data_organizer.accounts_data_cost_breakdown_acc)
+        tables_to_render = _select_year(year, data_organizer.accounts_data_cost_breakdown_acc)
+        #rendered_tables = _render_tables(data_organizer.accounts_data_cost_breakdown_acc)
     else:
         raise ValueError(f"Invalid calculation type {calculation_type}")
+    rendered_tables = _render_tables(tables_to_render)
     return rendered_tables
-            
+
+def _select_year(year: int, tables: dict[str, pd.DataFrame]) -> dict[str, pd.DataFrame]:
+    copied_tables = copy.copy(tables)    
+    for key, table in copied_tables.items():
+        selected_cols = [col for col in list(table.columns) 
+                         if str(year) == col[:4] or col == "Category"]
+        copied_tables[key] = table[selected_cols]
+    return copied_tables
+
+
+
 def _render_tables(tables: dict[str, pd.DataFrame]) -> list:
     rendered_tables = []
     display_columns = [{"name": i, "id": i} for i in tables["all"].columns]
