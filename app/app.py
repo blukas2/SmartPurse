@@ -38,7 +38,7 @@ def render_content(tab):
                 html.H4("Year: "),
                 dcc.Dropdown(transcript_viewer.years, max(transcript_viewer.years), id='summary_year', style={"width": "10%"}),
                 html.H4("Calculation type: "),
-                dcc.Dropdown(["monthly", "accumulated monthly"], "monthly", id='calc_type')
+                dcc.Dropdown(["monthly", "accumulated monthly", "YTD%"], "monthly", id='calc_type')
             ], style={"display":"flex"}),
             #dcc.Dropdown(["monthly", "accumulated monthly"], "monthly", id='calc_type'),
             html.Div(id='summary_tables')
@@ -72,10 +72,10 @@ def render_content(tab):
 def render_calculation_type(year: int, calculation_type: str) -> list:
     if calculation_type == "monthly":
         tables_to_render = _select_year(year, data_organizer.accounts_data_cost_breakdown)
-        #rendered_tables = _render_tables(data_organizer.accounts_data_cost_breakdown)
     elif calculation_type == "accumulated monthly":
         tables_to_render = _select_year(year, data_organizer.accounts_data_cost_breakdown_acc)
-        #rendered_tables = _render_tables(data_organizer.accounts_data_cost_breakdown_acc)
+    elif calculation_type == "YTD%":
+        tables_to_render = _select_year(year, data_organizer.accounts_data_cost_breakdown_ytd)
     else:
         raise ValueError(f"Invalid calculation type {calculation_type}")
     rendered_tables = _render_tables(tables_to_render)

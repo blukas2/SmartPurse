@@ -9,6 +9,7 @@ class DataOrganizer:
     def reorganize_data(self):
         self._reorganize_data_for_cost_breakdown()
         self._calculate_monthly_accumulated()
+        self._calculate_ytd()
 
     def _reorganize_data_for_cost_breakdown(self):
         self.accounts_data_cost_breakdown = {"all": self._prepare_data(account_name="all")}
@@ -119,3 +120,23 @@ class DataOrganizer:
         month = date[5:7]
         day = date[8:10]
         return year, month, day
+
+    def _calculate_ytd(self):
+        self.accounts_data_cost_breakdown_ytd = {account_name: data.copy() for account_name, data in self.accounts_data_cost_breakdown_acc.items()}
+        for account_name, data in self.accounts_data_cost_breakdown_ytd.items():
+            self.accounts_data_cost_breakdown_ytd[account_name] = self._calculate_ytd_values_in_df(data)
+
+    def _calculate_ytd_values_in_df(self, df: pd.DataFrame):
+        columns = list(df.columns)
+        columns.sort(reverse=True)
+        for column in columns:
+            if column != 'Category':
+                year, month, day = self._split_date_string_to_components(column)
+                year_prev = str(int(year)-1)
+                prev_year_column = f"{year_prev}-{month}-{day}"
+                if prev_year_column in columns:
+                    df[column] = (df[column]/df[prev_year_column]*100-100).round(decimals=2)
+                else:
+                    df[column] = None
+        return df
+
