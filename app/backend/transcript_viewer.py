@@ -14,6 +14,7 @@ class TranscriptViewer:
         self.default_month = self._get_default_month()
         self.main_categories = self.account_data['main_category'].unique().tolist()
         self.subcategories = self.account_data['subcategory'].unique().tolist()
+        self.budget_items = self.account_data['budget_item'].unique().tolist()
 
 
     def _read_account_data(self, accounts: list[Account]):

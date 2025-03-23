@@ -57,7 +57,9 @@ def render_content(tab):
                 html.H4("Main Category: "),
                 dcc.Dropdown(transcript_viewer.main_categories, None, id='transcript_main_category', style={"width": "10%"}),
                 html.H4("Subcategory: "),
-                dcc.Dropdown(transcript_viewer.subcategories, None, id='transcript_subcategory', style={"width": "10%"})
+                dcc.Dropdown(transcript_viewer.subcategories, None, id='transcript_subcategory', style={"width": "10%"}),
+                html.H4("Budget Item: "),
+                dcc.Dropdown(transcript_viewer.budget_items, None, id='transcript_budget_item', style={"width": "10%"})
                 ], style={"display":"flex"}
             ),
             html.Div(id='transcript_table')
@@ -117,15 +119,18 @@ def _render_tables(tables: dict[str, pd.DataFrame]) -> list:
     Input(component_id='transcript_year', component_property='value'),
     Input(component_id='transcript_month', component_property='value'),
     Input(component_id='transcript_main_category', component_property='value'),
-    Input(component_id='transcript_subcategory', component_property='value')
+    Input(component_id='transcript_subcategory', component_property='value'),
+    Input(component_id='transcript_budget_item', component_property='value')
 )
-def render_transcript(account_name: str, year: int, month: int, main_category: str, subcategory: str) -> list:    
+def render_transcript(account_name: str, year: int, month: int, main_category: str,
+                      subcategory: str, budget_item: str) -> list:    
     df_to_render = transcript_viewer.account_data
     df_to_render = filter_transcript_df(df_to_render, "Account Name", account_name)
     df_to_render = filter_transcript_df(df_to_render, "Year", year)
     df_to_render = filter_transcript_df(df_to_render, "Month", month)
     df_to_render = filter_transcript_df(df_to_render, "main_category", main_category)
     df_to_render = filter_transcript_df(df_to_render, "subcategory", subcategory)
+    df_to_render = filter_transcript_df(df_to_render, "budget_item", budget_item)
 
     display_columns = [{"name": i, "id": i} for i in df_to_render.columns]
     rendered_table = dash_table.DataTable(data=df_to_render.to_dict('records'),
