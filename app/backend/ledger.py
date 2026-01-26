@@ -9,7 +9,8 @@ from globals.settings import DATA_ROOT_FOLDER
 
 class Ledger:
     def __init__(self):
-        self.account_names = os.listdir(DATA_ROOT_FOLDER)
+        self.account_names = [account_name for account_name in os.listdir(DATA_ROOT_FOLDER)
+                              if account_name != "Config"]
 
     def collect_data(self):
         self._load_accounts()
@@ -38,6 +39,7 @@ class Account:
         self.account_name = folder_name
         self.root_path = f"{DATA_ROOT_FOLDER}/{folder_name}"
         self.config_folder = f"{self.root_path}/Config"
+        self.global_config_folder = f"{DATA_ROOT_FOLDER}/Config"
         self.data_folder = f"{self.root_path}/Data"
 
     def load(self):
@@ -48,7 +50,7 @@ class Account:
     def _load_configs(self):
         with open(f"{self.config_folder}/column_mapping.json", encoding="utf-8") as file:
             self.column_mapping = json.load(file)
-        with open(f"{self.config_folder}/categories.json", encoding="utf-8") as file:
+        with open(f"{self.global_config_folder}/categories.json", encoding="utf-8") as file:
             self.categories = json.load(file)
 
     def _load_data(self):
