@@ -4,8 +4,6 @@ import numpy as np
 from pandas import DataFrame
 import json
 
-from typing import Literal, Optional
-
 from globals.settings import DATA_ROOT_FOLDER
 
 
