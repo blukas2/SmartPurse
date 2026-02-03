@@ -4,6 +4,8 @@ import numpy as np
 from pandas import DataFrame
 import json
 
+from typing import Literal, Optional
+
 from globals.settings import DATA_ROOT_FOLDER
 
 
@@ -116,7 +118,8 @@ class Categorizer:
         return self.record
     
     def _set_categories_for_single_record(self, subcategory_name: str, lineitem_name: str, lineitem_content: dict):
-        self.record_identified = self._identify_record(lineitem_content)
+        resolver = LineItemResolver(self.record, lineitem_content)
+        self.record_identified = resolver.record_identified
         if self.record_identified:
             self.record['main_category'] = self.main_category
             self.record['subcategory'] = subcategory_name
@@ -125,35 +128,6 @@ class Categorizer:
             self.record['main_category'] = self.main_category
             self.record['subcategory'] = "OTHER"
             self.record['budget_item'] = "Other"
-    
-    def _identify_record(self, lineitem_content: dict) -> bool:
-        lineitem_content_key = list(lineitem_content.keys())[0]
-        if lineitem_content_key in ['AND', 'OR']:
-            record_identified = self._check_for_lineitem_with_complex_statement(lineitem_content, lineitem_content_key)
-        else:
-            record_identified = self._check_for_lineitem(field_name = lineitem_content_key,
-                                                         allowed_values = lineitem_content[lineitem_content_key])
-        return record_identified
-    
-    def _check_for_lineitem_with_complex_statement(self, lineitem_content: dict, lineitem_content_key: str) -> bool:
-        field_value_statements = lineitem_content[lineitem_content_key]                    
-        field_value_checks = [self._check_for_lineitem(field_name=key, allowed_values=value) for key, value in field_value_statements.items()]                    
-        if lineitem_content_key == 'AND':
-            record_identified = all(field_value_checks)
-        else:
-            record_identified = any(field_value_checks)
-        return record_identified
-
-    def _check_for_lineitem(self, field_name, allowed_values):
-        if field_name not in self.record:
-            record_identified = False
-        else:            
-            actual_value = self.record[field_name]
-            if actual_value is None:
-                record_identified = False
-            else:
-                record_identified = any([(allowed_value in actual_value) for allowed_value in allowed_values])
-        return record_identified
 
     def _select_main_category(self):
         if self.record['Amount']>0:
@@ -166,7 +140,35 @@ class Categorizer:
         self.main_category = category_name
 
 
+class LineItemResolver:
+    def __init__(self, record: dict, lineitem_content: dict):
+        self.record = record
+        self.lineitem_content = lineitem_content
+        self.record_identified = self._interpret_lineitem_content()
+
+    def _interpret_lineitem_content(self):
+        key = list(self.lineitem_content.keys())[0]
+        value = self.lineitem_content[key]
+        if key == 'AND':
+            return all([LineItemResolver(self.record, {key: value}).record_identified for key, value in value.items()])
+        elif key == 'OR':
+            return any([LineItemResolver(self.record, {key: value}).record_identified for key, value in value.items()])
+        else:
+            return self._check_for_lineitem(field_name = key, allowed_values = value)
 
 
+    def _check_for_lineitem(self, field_name, allowed_values) -> bool:
+        if field_name not in self.record:
+            record_identified = False
+        else:            
+            actual_value = self.record[field_name]
+            if actual_value is None:
+                record_identified = False
+            else:
+                try:
+                    record_identified = any([(allowed_value in str(actual_value)) for allowed_value in allowed_values])
+                except TypeError as e:
+                    print(f"TypeError for field_name: {field_name}, actual_value: {actual_value}, allowed_values: {allowed_values}")
+                    raise e
 
-#print(os.listdir(DATA_ROOT_FOLDER))
+        return record_identified
