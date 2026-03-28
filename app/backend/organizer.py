@@ -17,6 +17,7 @@ class DataOrganizer:
         self._calculate_ytd()
         self._calculate_yearly_cost_breakdown()
         self._calculate_yoy()
+        self._calculate_yearly_pct_of_income()
         logger.info("Data reorganization complete")
 
     def _reorganize_data_for_cost_breakdown(self):
@@ -146,6 +147,7 @@ class DataOrganizer:
                     df[column] = (df[column]/df[prev_year_column]*100-100).round(decimals=2)
                 else:
                     df[column] = None
+        return df
 
     def _calculate_yearly_cost_breakdown(self):
         self.accounts_data_yearly_breakdown = {}
@@ -175,6 +177,24 @@ class DataOrganizer:
         self.accounts_data_yearly_breakdown_yoy = {}
         for account_name, data in self.accounts_data_yearly_breakdown.items():
             self.accounts_data_yearly_breakdown_yoy[account_name] = self._calculate_yoy_values_in_df(data.copy())
+
+    def _calculate_yearly_pct_of_income(self):
+        self.accounts_data_yearly_breakdown_pct_of_income = {}
+        for account_name, data in self.accounts_data_yearly_breakdown.items():
+            self.accounts_data_yearly_breakdown_pct_of_income[account_name] = self._calculate_pct_of_income_in_df(data.copy())
+
+    def _calculate_pct_of_income_in_df(self, df: pd.DataFrame) -> pd.DataFrame:
+        date_columns = [col for col in df.columns if col != 'Category']
+        income_row = df[df['Category'] == 'INCOME']
+        if income_row.empty:
+            return df
+        for col in date_columns:
+            income_value = income_row[col].values[0]
+            if income_value != 0:
+                df[col] = (df[col] / income_value * 100).round(2)
+            else:
+                df[col] = None
+        return df
 
     def _calculate_yoy_values_in_df(self, df: pd.DataFrame):
         year_columns = sorted([col for col in df.columns if col != 'Category'], reverse=True)

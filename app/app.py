@@ -5,10 +5,13 @@ from dash import Dash, dash_table, html, dcc, callback, Input, Output
 
 from typing import Any
 
+import plotly.graph_objects as go
+
 from globals.logger import setup_logging, get_logger
 from backend.ledger import Ledger
 from backend.organizer import DataOrganizer
 from backend.transcript_viewer import TranscriptViewer
+from backend.chart_data_provider import ChartDataProvider
 
 setup_logging()
 logger = get_logger(__name__)
@@ -19,6 +22,7 @@ ledger.collect_data()
 data_organizer = DataOrganizer(ledger.aggregated_data)
 data_organizer.reorganize_data()
 transcript_viewer = TranscriptViewer(ledger.accounts)
+chart_data_provider = ChartDataProvider(data_organizer)
 
 
 app = Dash(__name__, suppress_callback_exceptions=True)
@@ -26,6 +30,7 @@ app = Dash(__name__, suppress_callback_exceptions=True)
 app.layout = html.Div([
     dcc.Tabs(id='tabs-example-1', value='tab-summary', children=[
         dcc.Tab(label='Summary', value='tab-summary'),
+        dcc.Tab(label='Charts', value='tab-charts'),
         dcc.Tab(label='Transcript', value='tab-transcript'),
     ]),
     html.Div(id='tabs-example-content-1')
@@ -44,8 +49,9 @@ def render_content(tab):
             ]),
             html.Div(id='summary-sub-tab-content')
         ])
+    elif tab == 'tab-charts':
+        return _render_charts_tab()
     elif tab == 'tab-transcript':
-
         return html.Div([
             html.Div([
                 html.H4("Account name: "),
@@ -86,7 +92,7 @@ def render_summary_sub_tab(sub_tab):
         return html.Div([
             html.Div([
                 html.H4("Calculation type: "),
-                dcc.Dropdown(["Yearly", "YoY%"], "Yearly", id='yearly_calc_type')
+                dcc.Dropdown(["Yearly", "YoY%", "% of total income"], "Yearly", id='yearly_calc_type')
             ], style={"display":"flex"}),
             html.Div(id='yearly_summary_tables')
         ])
@@ -127,6 +133,8 @@ def render_yearly_calculation_type(calculation_type: str) -> list:
         tables_to_render = data_organizer.accounts_data_yearly_breakdown
     elif calculation_type == "YoY%":
         tables_to_render = data_organizer.accounts_data_yearly_breakdown_yoy
+    elif calculation_type == "% of total income":
+        tables_to_render = data_organizer.accounts_data_yearly_breakdown_pct_of_income
     else:
         raise ValueError(f"Invalid calculation type {calculation_type}")
     return _render_tables(tables_to_render)
@@ -181,6 +189,77 @@ def filter_transcript_df(df: DataFrame, column_name: str, filter_value: Any) -> 
     if filter_value is not None:
         df = df[df[column_name]==filter_value]
     return df
+
+
+def _render_charts_tab():
+    return html.Div([
+        html.Div([
+            html.H4("Time Granularity: "),
+            dcc.Dropdown(
+                id='chart-time-granularity',
+                options=["Monthly", "Yearly"],
+                value="Monthly",
+                style={"width": "15%"}
+            ),
+            html.H4("Calculation Type: "),
+            dcc.Dropdown(
+                id='chart-calc-type',
+                options=["Nominal", "YoY%", "% of total income"],
+                value="Nominal",
+                style={"width": "15%"}
+            ),
+        ], style={"display": "flex"}),
+        html.Div([
+            html.H4("Categories: "),
+            dcc.Dropdown(
+                id='chart-categories',
+                options=chart_data_provider.get_categories(),
+                value=[],
+                multi=True
+            ),
+        ]),
+        dcc.Graph(id='chart-line-graph')
+    ])
+
+
+@callback(
+    Output('chart-line-graph', 'figure'),
+    Input('chart-time-granularity', 'value'),
+    Input('chart-calc-type', 'value'),
+    Input('chart-categories', 'value')
+)
+def update_chart(granularity: str, calc_type: str, selected_categories: list[str]):
+    figure = go.Figure()
+    if not selected_categories:
+        return figure
+    df = chart_data_provider.get_chart_data(granularity, calc_type)
+    filtered = df[df["Category"].isin(selected_categories)]
+    date_columns = ChartDataProvider._get_date_columns(filtered)
+    figure = _build_line_chart(filtered, date_columns, calc_type)
+    return figure
+
+
+def _build_line_chart(df: pd.DataFrame, date_columns: list[str], calc_type: str) -> go.Figure:
+    figure = go.Figure()
+    for _, row in df.iterrows():
+        figure.add_trace(go.Scatter(
+            x=date_columns,
+            y=[row[col] for col in date_columns],
+            mode='lines',
+            name=row["Category"]
+        ))
+    y_label = _get_y_axis_label(calc_type)
+    figure.update_layout(xaxis_title="Period", yaxis_title=y_label)
+    return figure
+
+
+def _get_y_axis_label(calc_type: str) -> str:
+    labels = {
+        "Nominal": "Amount",
+        "YoY%": "Year-over-Year %",
+        "% of total income": "% of Total Income"
+    }
+    return labels.get(calc_type, "Value")
 
 
 if __name__ == '__main__':
