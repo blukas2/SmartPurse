@@ -5,11 +5,15 @@ from dash import Dash, dash_table, html, dcc, callback, Input, Output
 
 from typing import Any
 
+from globals.logger import setup_logging, get_logger
 from backend.ledger import Ledger
 from backend.organizer import DataOrganizer
 from backend.transcript_viewer import TranscriptViewer
 
+setup_logging()
+logger = get_logger(__name__)
 
+logger.info("Starting SmartPurse application")
 ledger = Ledger()
 ledger.collect_data()
 data_organizer = DataOrganizer(ledger.aggregated_data)
@@ -34,14 +38,11 @@ app.layout = html.Div([
 def render_content(tab):
     if tab == 'tab-summary':
         return html.Div([
-            html.Div([
-                html.H4("Year: "),
-                dcc.Dropdown(transcript_viewer.years, max(transcript_viewer.years), id='summary_year', style={"width": "10%"}),
-                html.H4("Calculation type: "),
-                dcc.Dropdown(["monthly", "accumulated monthly", "YTD%"], "monthly", id='calc_type')
-            ], style={"display":"flex"}),
-            #dcc.Dropdown(["monthly", "accumulated monthly"], "monthly", id='calc_type'),
-            html.Div(id='summary_tables')
+            dcc.Tabs(id='summary-sub-tabs', value='sub-tab-monthly', children=[
+                dcc.Tab(label='Monthly', value='sub-tab-monthly'),
+                dcc.Tab(label='Yearly', value='sub-tab-yearly'),
+            ]),
+            html.Div(id='summary-sub-tab-content')
         ])
     elif tab == 'tab-transcript':
 
@@ -63,6 +64,31 @@ def render_content(tab):
                 ], style={"display":"flex"}
             ),
             html.Div(id='transcript_table')
+        ])
+
+
+@callback(
+    Output('summary-sub-tab-content', 'children'),
+    Input('summary-sub-tabs', 'value')
+)
+def render_summary_sub_tab(sub_tab):
+    if sub_tab == 'sub-tab-monthly':
+        return html.Div([
+            html.Div([
+                html.H4("Year: "),
+                dcc.Dropdown(transcript_viewer.years, max(transcript_viewer.years), id='summary_year', style={"width": "10%"}),
+                html.H4("Calculation type: "),
+                dcc.Dropdown(["monthly", "accumulated monthly", "YTD%"], "monthly", id='calc_type')
+            ], style={"display":"flex"}),
+            html.Div(id='summary_tables')
+        ])
+    elif sub_tab == 'sub-tab-yearly':
+        return html.Div([
+            html.Div([
+                html.H4("Calculation type: "),
+                dcc.Dropdown(["Yearly", "YoY%"], "Yearly", id='yearly_calc_type')
+            ], style={"display":"flex"}),
+            html.Div(id='yearly_summary_tables')
         ])
 
 
@@ -91,6 +117,19 @@ def _select_year(year: int, tables: dict[str, pd.DataFrame]) -> dict[str, pd.Dat
         copied_tables[key] = table[selected_cols]
     return copied_tables
 
+
+@callback(
+    Output(component_id='yearly_summary_tables', component_property='children'),
+    Input(component_id='yearly_calc_type', component_property='value')
+)
+def render_yearly_calculation_type(calculation_type: str) -> list:
+    if calculation_type == "Yearly":
+        tables_to_render = data_organizer.accounts_data_yearly_breakdown
+    elif calculation_type == "YoY%":
+        tables_to_render = data_organizer.accounts_data_yearly_breakdown_yoy
+    else:
+        raise ValueError(f"Invalid calculation type {calculation_type}")
+    return _render_tables(tables_to_render)
 
 
 def _render_tables(tables: dict[str, pd.DataFrame]) -> list:

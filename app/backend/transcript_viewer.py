@@ -2,10 +2,14 @@ import pandas as pd
 from pandas import DataFrame
 
 from backend.ledger import Account
+from globals.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class TranscriptViewer:
     def __init__(self, accounts: list[Account]):
+        logger.info("Initializing TranscriptViewer")
         self.account_data = self._read_account_data(accounts)
         
         self.account_names = self.account_data['Account Name'].unique().tolist()

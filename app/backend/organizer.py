@@ -1,15 +1,23 @@
 import pandas as pd
 import numpy as np
 
+from globals.logger import get_logger
+
+logger = get_logger(__name__)
+
 
 class DataOrganizer:
     def __init__(self, input_data: pd.DataFrame):
         self.input_data = input_data
 
     def reorganize_data(self):
+        logger.info("Reorganizing data")
         self._reorganize_data_for_cost_breakdown()
         self._calculate_monthly_accumulated()
         self._calculate_ytd()
+        self._calculate_yearly_cost_breakdown()
+        self._calculate_yoy()
+        logger.info("Data reorganization complete")
 
     def _reorganize_data_for_cost_breakdown(self):
         self.accounts_data_cost_breakdown = {"all": self._prepare_data(account_name="all")}
@@ -138,5 +146,44 @@ class DataOrganizer:
                     df[column] = (df[column]/df[prev_year_column]*100-100).round(decimals=2)
                 else:
                     df[column] = None
+
+    def _calculate_yearly_cost_breakdown(self):
+        self.accounts_data_yearly_breakdown = {}
+        for account_name, data in self.accounts_data_cost_breakdown.items():
+            self.accounts_data_yearly_breakdown[account_name] = self._aggregate_to_yearly(data.copy())
+
+    def _aggregate_to_yearly(self, df: pd.DataFrame):
+        complete_years = self._get_complete_years(df)
+        for year in complete_years:
+            month_cols = [col for col in df.columns if col.startswith(year + '-')]
+            df[year] = df[month_cols].sum(axis=1).round(decimals=2)
+        month_cols_all = [col for col in df.columns if col != 'Category' and col not in complete_years]
+        df = df.drop(columns=month_cols_all)
+        return df
+
+    def _get_complete_years(self, df: pd.DataFrame):
+        month_columns = [col for col in df.columns if col != 'Category']
+        years_months = {}
+        for col in month_columns:
+            year = col[:4]
+            month = col[5:7]
+            years_months.setdefault(year, set()).add(month)
+        all_months = {f"{i:02d}" for i in range(1, 13)}
+        return sorted(year for year, months in years_months.items() if months == all_months)
+
+    def _calculate_yoy(self):
+        self.accounts_data_yearly_breakdown_yoy = {}
+        for account_name, data in self.accounts_data_yearly_breakdown.items():
+            self.accounts_data_yearly_breakdown_yoy[account_name] = self._calculate_yoy_values_in_df(data.copy())
+
+    def _calculate_yoy_values_in_df(self, df: pd.DataFrame):
+        year_columns = sorted([col for col in df.columns if col != 'Category'], reverse=True)
+        for column in year_columns:
+            prev_year = str(int(column) - 1)
+            if prev_year in year_columns:
+                df[column] = (df[column] / df[prev_year] * 100 - 100).round(decimals=2)
+            else:
+                df[column] = None
+        return df
         return df
 

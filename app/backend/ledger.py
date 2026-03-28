@@ -5,17 +5,23 @@ from pandas import DataFrame
 import json
 
 from globals.settings import DATA_ROOT_FOLDER
+from globals.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class Ledger:
     def __init__(self):
         self.account_names = [account_name for account_name in os.listdir(DATA_ROOT_FOLDER)
                               if account_name != "Config"]
+        logger.info("Ledger initialized with accounts: %s", self.account_names)
 
     def collect_data(self):
+        logger.info("Collecting data from all accounts")
         self._load_accounts()
         self._collect_all_data()
         self._aggregate_data()
+        logger.info("Data collection complete: %d rows", len(self.aggregated_data))
     
     def _load_accounts(self):
         self.accounts = [Account(account_name) for account_name in self.account_names]
@@ -43,9 +49,11 @@ class Account:
         self.data_folder = f"{self.root_path}/Data"
 
     def load(self):
+        logger.info("Loading account: %s", self.account_name)
         self._load_configs()
         self._load_data()
-        self._assign_categories()        
+        self._assign_categories()
+        logger.info("Account '%s' loaded: %d records", self.account_name, len(self.data))        
 
     def _load_configs(self):
         with open(f"{self.config_folder}/column_mapping.json", encoding="utf-8") as file:
@@ -166,7 +174,8 @@ class LineItemResolver:
                 try:
                     record_identified = any([(allowed_value in str(actual_value)) for allowed_value in allowed_values])
                 except TypeError as e:
-                    print(f"TypeError for field_name: {field_name}, actual_value: {actual_value}, allowed_values: {allowed_values}")
+                    logger.error("TypeError for field_name: %s, actual_value: %s, allowed_values: %s",
+                                 field_name, actual_value, allowed_values)
                     raise e
 
         return record_identified
