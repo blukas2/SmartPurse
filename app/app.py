@@ -193,6 +193,27 @@ def filter_transcript_df(df: DataFrame, column_name: str, filter_value: Any) -> 
 
 def _render_charts_tab():
     return html.Div([
+        dcc.Tabs(id='charts-sub-tabs', value='charts-sub-tab-basic', children=[
+            dcc.Tab(label='Basic', value='charts-sub-tab-basic'),
+            dcc.Tab(label='Annual Trend', value='charts-sub-tab-annual-trend'),
+        ]),
+        html.Div(id='charts-sub-tab-content')
+    ])
+
+
+@callback(
+    Output('charts-sub-tab-content', 'children'),
+    Input('charts-sub-tabs', 'value')
+)
+def render_charts_sub_tab(sub_tab):
+    if sub_tab == 'charts-sub-tab-basic':
+        return _render_basic_charts_tab()
+    elif sub_tab == 'charts-sub-tab-annual-trend':
+        return _render_annual_trend_tab()
+
+
+def _render_basic_charts_tab():
+    return html.Div([
         html.Div([
             html.H4("Time Granularity: "),
             dcc.Dropdown(
@@ -219,6 +240,30 @@ def _render_charts_tab():
             ),
         ]),
         dcc.Graph(id='chart-line-graph')
+    ])
+
+
+def _render_annual_trend_tab():
+    available_years = chart_data_provider.get_available_years()
+    return html.Div([
+        html.Div([
+            html.H4("Category: "),
+            dcc.Dropdown(
+                id='cumulative-chart-category',
+                options=chart_data_provider.get_categories(),
+                value=None,
+                style={"width": "40%"}
+            ),
+            html.H4("Years: "),
+            dcc.Dropdown(
+                id='cumulative-chart-years',
+                options=available_years,
+                value=[max(available_years)] if available_years else [],
+                multi=True,
+                style={"width": "30%"}
+            ),
+        ], style={"display": "flex"}),
+        dcc.Graph(id='cumulative-chart-graph')
     ])
 
 
@@ -260,6 +305,38 @@ def _get_y_axis_label(calc_type: str) -> str:
         "% of total income": "% of Total Income"
     }
     return labels.get(calc_type, "Value")
+
+
+@callback(
+    Output('cumulative-chart-graph', 'figure'),
+    Input('cumulative-chart-category', 'value'),
+    Input('cumulative-chart-years', 'value')
+)
+def update_annual_trend_chart(category: str, years: list[int]):
+    figure = go.Figure()
+    if not category or not years:
+        return figure
+    cumulative_data = chart_data_provider.get_cumulative_data(category, years)
+    return _build_annual_trend_chart(cumulative_data, category)
+
+
+def _build_annual_trend_chart(cumulative_data: dict, category: str) -> go.Figure:
+    figure = go.Figure()
+    for year, values in cumulative_data.items():
+        figure.add_trace(go.Scatter(
+            x=_get_month_labels(len(values)),
+            y=values,
+            mode='lines+markers',
+            name=str(year)
+        ))
+    figure.update_layout(xaxis_title="Month", yaxis_title="Amount", title=f"Annual Trend: {category}")
+    return figure
+
+
+def _get_month_labels(count: int) -> list[str]:
+    month_names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    return month_names[:count]
 
 
 if __name__ == '__main__':

@@ -29,6 +29,26 @@ class ChartDataProvider:
         nominal_monthly = self._datasets[(self.GRANULARITY_MONTHLY, self.CALC_NOMINAL)]
         return sorted(nominal_monthly["Category"].tolist())
 
+    def get_available_years(self) -> list[int]:
+        """Return sorted list of years present in the monthly data."""
+        nominal_monthly = self._datasets[(self.GRANULARITY_MONTHLY, self.CALC_NOMINAL)]
+        date_columns = self._get_date_columns(nominal_monthly)
+        return sorted({int(col[:4]) for col in date_columns})
+
+    def get_cumulative_data(self, category: str, years: list[int]) -> dict[int, list[float]]:
+        """Return accumulated monthly values per year for a single category."""
+        acc_df = self._data_organizer.accounts_data_cost_breakdown_acc["all"].copy()
+        acc_df = self._negate_expenditure_values(acc_df)
+        category_row = acc_df[acc_df["Category"] == category]
+        if category_row.empty:
+            return {}
+        result = {}
+        for year in years:
+            year_cols = self._get_year_columns(year, acc_df)
+            if year_cols:
+                result[year] = [category_row[col].values[0] for col in year_cols]
+        return result
+
     def _prepare_all_datasets(self):
         logger.info("Preparing chart datasets")
         monthly_nominal = self._negate_expenditure_values(
@@ -88,6 +108,11 @@ class ChartDataProvider:
         date_columns = ChartDataProvider._get_date_columns(df)
         df.loc[mask, date_columns] = df.loc[mask, date_columns] * -1
         return df
+
+    def _get_year_columns(self, year: int, df: pd.DataFrame) -> list[str]:
+        """Return sorted monthly columns belonging to a given year."""
+        date_columns = self._get_date_columns(df)
+        return sorted([col for col in date_columns if col[:4] == str(year)])
 
     @staticmethod
     def _get_date_columns(df: pd.DataFrame) -> list[str]:
